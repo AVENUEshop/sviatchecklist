@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Чек-лист вуза</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:var(--tg-theme-secondary-bg-color,#f6f5f1);
+  --card:var(--tg-theme-bg-color,#ffffff);
+  --text:var(--tg-theme-text-color,#1f2328);
+  --muted:var(--tg-theme-hint-color,#6b7280);
+  --accent:var(--tg-theme-button-color,#4f46e5);
+  --link:var(--tg-theme-link-color,#4f46e5);
+  --line:rgba(128,128,128,.25);
+  --ok:#22c55e;
+  --track:rgba(128,128,128,.2);
+  box-sizing:border-box;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.4;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+main{max-width:720px;margin:0 auto;padding:16px 14px 40px}
+h1{font-size:22px;margin:4px 0 14px}
+.card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.bar{height:10px;background:var(--track);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .3s}
+.bar.done>i{background:var(--ok)}
+.row{display:flex;gap:8px;align-items:center}
+.between{justify-content:space-between}
+.big{font-size:28px;font-weight:700}
+.dl{font-size:14px;font-weight:600;margin-top:2px}
+.pct{font-size:13px;color:var(--muted)}
+.subj h2{font-size:16px;margin:0}
+ul{list-style:none;margin:10px 0 0;padding:0}
+li{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+li input{width:22px;height:22px;accent-color:var(--accent);flex:0 0 auto}
+li a{flex:1;color:var(--link);text-decoration:none;word-break:break-word}
+li.d a{text-decoration:line-through;color:var(--muted)}
+.foot{text-align:center;margin-top:16px}
+button{cursor:pointer;border:0;background:transparent;color:var(--muted);font-size:14px;padding:8px}
+</style>
+</head>
+<body>
+<main>
+  <h1>🎓 Что нужно закрыть</h1>
+  <div class="card">
+    <div class="row between"><div><div class="big" id="total">0%</div><div class="pct" id="totalTxt"></div><div class="dl" id="dl"></div></div><div style="font-size:32px" id="emoji">📚</div></div>
+    <div class="bar" id="totalBar"><i></i></div>
+  </div>
+  <div id="list"></div>
+  <div class="foot"><button id="reset">Сбросить прогресс</button></div>
+</main>
+
+<script>
+(function(){
+  var tg=window.Telegram&&window.Telegram.WebApp;
+  if(tg){try{tg.ready();tg.expand()}catch(e){}}
+
+  var DEADLINE=new Date(2027,0,9);
+  var B="https://edu.gubkin.ru/mod/";
+  function A(id){return B+"assign/view.php?id="+id}
+  function Q(id){return B+"quiz/view.php?id="+id}
+
+  // Редактируй список здесь: ["название", ссылка]
+  var SUBJECTS=[
+    {name:"Деловой этикет и культура коммуникации",tasks:[
+      ["Задание к ПЗ №1. Доклад «Этикет в религиозном учреждении» (25 баллов)",A(1205681)],
+      ["Задание к ПЗ №2. Доклад «Этикет в светском учреждении» (25 баллов)",A(1205685)],
+      ["Задание к ПЗ №3. Д/З «Национальный этикет в одежде» (25 баллов)",A(1205688)],
+      ["Задание к ПЗ №4. Д/З «Национальный застольный этикет» (25 баллов)",A(1205690)]]},
+    {name:"Дифференциальное исчисление и аналитическая геометрия",tasks:[
+      ["Отчёт по домашней контрольной работе",A(1190023)],
+      ["Контрольные работы в классе",A(1190024)]]},
+    {name:"Информационные системы и технологии",tasks:[
+      ["Ответить на контрольные вопросы к лекции №1",A(1186624)],
+      ["Ответить на контрольные вопросы к лекции №2",A(1196296)],
+      ["Ответить на контрольные вопросы к лекции №3",A(1201035)],
+      ["Ответить на контрольные вопросы к лекции №4",A(1204601)]]},
+    {name:"История нефтегазовой отрасли",tasks:[
+      ["Конспекты лекций (25 баллов)",A(1189735)],
+      ["Доклад №1 (25 баллов)",A(1189738)],
+      ["Доклад №2 (25 баллов)",A(1189739)],
+      ["Доклад №3 (25 баллов)",A(1189740)]]},
+    {name:"Командообразование и принципы успешной командной деятельности",tasks:[
+      ["Доклады на семинаре",A(1205184)],
+      ["Тестовое задание",A(1205185)],
+      ["Контрольный опрос",A(1205186)]]},
+    {name:"Начертательная геометрия",tasks:[
+      ["Выполненные РГР",A(1190391)],
+      ["Лабораторные работы (аудиторные)",A(1190392)]]},
+    {name:"Программные продукты в математическом моделировании",tasks:[
+      ["Лабораторная работа №1 (обязательная)",A(1205521)],
+      ["Лабораторная работа №2",A(1205800)],
+      ["Реферат (обязательно)",A(1205953)],
+      ["Лабораторная работа №3",A(1205954)],
+      ["Итоговое тестирование",Q(1205956)]]},
+    {name:"Физическая культура",tasks:[
+      ["Доклад",A(1160891)],
+      ["Тест",A(1160076)]]},
+    {name:"Химия",tasks:[
+      ["Итоговое тестирование",Q(1187621)],
+      ["Конспекты лекций для модульников",A(1187622)],
+      ["Контрольная работа (стр. 40 в рабочей тетради)",A(1187634)],
+      ["Коллоквиум №1 (стр. 64 и 75 в рабочей тетради)",A(1187635)],
+      ["Коллоквиум №2 (стр. 94, 102 и 118 в рабочей тетради)",A(1187636)],
+      ["Коллоквиум №3 (стр. 130 в рабочей тетради)",A(1187637)]]}
+  ];
+
+  var KEY="done";
+  var done={}; // id -> true, где id = "s0t1"
+
+  var cloud=tg&&tg.CloudStorage&&tg.isVersionAtLeast&&tg.isVersionAtLeast("6.9")?tg.CloudStorage:null;
+
+  function parse(str){
+    var o={};
+    if(str){String(str).split(",").forEach(function(k){if(k)o[k]=true})}
+    return o;
+  }
+  function serialize(){return Object.keys(done).join(",")}
+  function localGet(){try{return localStorage.getItem("tg-checklist-"+KEY)}catch(e){return null}}
+  function localSet(v){try{localStorage.setItem("tg-checklist-"+KEY,v)}catch(e){}}
+
+  function save(){
+    var v=serialize();
+    localSet(v);
+    if(cloud){try{cloud.setItem(KEY,v,function(){})}catch(e){}}
+  }
+  function load(cb){
+    var local=localGet();
+    if(cloud){
+      var finished=false;
+      var t=setTimeout(function(){if(!finished){finished=true;done=parse(local);cb()}},2500);
+      try{
+        cloud.getItem(KEY,function(err,val){
+          if(finished)return;finished=true;clearTimeout(t);
+          done=parse(err?local:(val||local));cb();
+        });
+      }catch(e){if(!finished){finished=true;clearTimeout(t);done=parse(local);cb()}}
+    }else{done=parse(local);cb()}
+  }
+
+  function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+  function plural(n){var m=n%10,h=n%100;if(m===1&&h!==11)return"день";if(m>=2&&m<=4&&(h<12||h>14))return"дня";return"дней"}
+  function haptic(){try{tg.HapticFeedback.selectionChanged()}catch(e){}}
+
+  function render(){
+    var list=document.getElementById("list");list.textContent="";
+    var total=0,cnt=0;
+    SUBJECTS.forEach(function(s,i){
+      var c=0;
+      s.tasks.forEach(function(t,j){if(done["s"+i+"t"+j])c++});
+      total+=s.tasks.length;cnt+=c;
+      var sp=Math.round(c/s.tasks.length*100);
+      var card=el("div","card subj");
+      var left=el("div");
+      left.appendChild(el("h2","",s.name));
+      left.appendChild(el("div","pct",sp+"% · "+c+" из "+s.tasks.length));
+      card.appendChild(left);
+      var bar=el("div","bar"+(sp===100?" done":""));
+      var fill=el("i");fill.style.width=sp+"%";bar.appendChild(fill);card.appendChild(bar);
+      var ul=el("ul");
+      s.tasks.forEach(function(t,j){
+        var id="s"+i+"t"+j;
+        var li=el("li",done[id]?"d":"");
+        var cb=el("input");cb.type="checkbox";cb.checked=!!done[id];
+        cb.onchange=function(){if(cb.checked)done[id]=true;else delete done[id];save();haptic();render()};
+        li.appendChild(cb);
+        var a=el("a","",t[0]);a.href=t[1];
+        a.onclick=function(e){
+          if(tg&&tg.openLink){e.preventDefault();tg.openLink(t[1])}
+        };
+        a.target="_blank";a.rel="noopener noreferrer";
+        li.appendChild(a);ul.appendChild(li);
+      });
+      card.appendChild(ul);list.appendChild(card);
+    });
+    var p=total?Math.round(cnt/total*100):0;
+    document.getElementById("total").textContent=p+"%";
+    document.getElementById("totalTxt").textContent="закрыто "+cnt+" из "+total;
+    var today=new Date();today.setHours(0,0,0,0);
+    var days=Math.round((DEADLINE-today)/86400000);
+    document.getElementById("dl").textContent="Всё сдать до 9 января"+(days>0?" · осталось "+days+" "+plural(days):days===0?" · сегодня последний день":"");
+    var tb=document.getElementById("totalBar");
+    tb.firstChild.style.width=p+"%";
+    tb.className="bar"+(p===100?" done":"");
+    document.getElementById("emoji").textContent=p===100?"🎉":(p>=50?"🔥":"📚");
+  }
+
+  document.getElementById("reset").onclick=function(){
+    var ok=function(){done={};save();render()};
+    if(tg&&tg.showConfirm){tg.showConfirm("Снять все галочки?",function(y){if(y)ok()})}
+    else if(confirm("Снять все галочки?"))ok();
+  };
+
+  load(render);
+})();
+</script>
+</body>
+</html>
